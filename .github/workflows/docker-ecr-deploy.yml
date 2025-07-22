@@ -69,7 +69,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     if: github.ref == 'refs/heads/docker'
-    environment: production
 
     steps:
     - name: Deploy using SSH and Docker Compose
