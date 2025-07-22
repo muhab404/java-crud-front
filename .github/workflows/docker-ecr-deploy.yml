@@ -86,8 +86,12 @@ jobs:
   deploy:
     name: Deploy to EC2 with Docker Compose
     runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/docker'
+    needs:
+      - build-and-push
+      - filter-changes
+    if: |
+      (needs.build-and-push.result == 'success' || needs.filter-changes.result == 'success') &&
+      github.ref == 'refs/heads/docker'
 
     steps:
     - name: Deploy using SSH and Docker Compose
