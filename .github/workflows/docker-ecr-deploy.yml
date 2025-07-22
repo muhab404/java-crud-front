@@ -14,11 +14,31 @@ env:
   ECR_REPOSITORY: java-crud-app
 
 jobs:
+
+
+  filter-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docker-changed: ${{ steps.filter.outputs.docker }}
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Filter for Docker-related changes
+      id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          docker:
+            - 'Dockerfile'
+            - 'docker-compose.prod.yml'
+            - 'src/**'
+
   build-and-push:
     name: Build and Push to ECR
     runs-on: ubuntu-latest
     outputs:
       ecr-registry: ${{ steps.login-ecr-public.outputs.registry }}
+    if: needs.filter-changes.outputs.docker-changed == 'true'
 
     steps:
     - name: Checkout code
@@ -80,11 +100,11 @@ jobs:
           echo "Cloning latest repo..."
           cd /home/ec2-user
           if [ -d java-crud-app ]; then
-            cd java-crud-app && git pull origin main
+            cd java-crud-app && git checkout docker && git pull origin docker
           else
-            git clone https://github.com/${{ github.repository }}.git java-crud-app && cd java-crud-app
+            git clone --branch docker https://github.com/${{ github.repository }}.git java-crud-app && cd java-crud-app
           fi
-
+          
           echo "Setting environment variables for Docker Compose..."
           echo "ECR_REGISTRY=${{ env.ECR_REGISTRY }}" > .env
           echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}" >> .env
