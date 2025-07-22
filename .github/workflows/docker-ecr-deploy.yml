@@ -7,6 +7,7 @@ on:
     branches: [ docker ]
 
 
+    
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: java-crud-app
