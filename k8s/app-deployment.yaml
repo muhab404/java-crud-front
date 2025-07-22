@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-crud-app-deployment
+  namespace: java-crud-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-crud-app
+  template:
+    metadata:
+      labels:
+        app: java-crud-app
+    spec:
+      containers:
+      - name: java-crud-app
+        image: <ECR_REGISTRY>/java-crud-app:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DB_URL
+          value: "jdbc:postgresql://postgres-service:5432/webapp"
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-crud-app-service
+  namespace: java-crud-app
+spec:
+  selector:
+    app: java-crud-app
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: LoadBalancer
