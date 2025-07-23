@@ -13,8 +13,6 @@ The pipeline supports three environments:
 
 ```yaml
 on:
-  push:
-    branches: [ develop, master ]
   pull_request:
     branches: [ develop, master ]
 ```
@@ -22,7 +20,7 @@ on:
 ## Pipeline Stages
 
 ### 1. Test Stage
-- **Trigger**: All pushes and PRs
+- **Trigger**:  PRs
 - **Actions**: 
   - Checkout code
   - Setup JDK 11
@@ -99,7 +97,6 @@ SSH_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----
    - ✅ Require pull request reviews before merging
    - ✅ Require status checks to pass before merging
    - ✅ Require branches to be up to date before merging
-   - ✅ Restrict pushes that create files larger than 100MB
    - ✅ Restrict who can push to matching branches (Owners only)
 
 ### Required Status Checks
@@ -126,45 +123,6 @@ SSH_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----
 - Handles conditional deployments
 - Manages secrets and environment variables
 
-## Monitoring and Logs
-
-### GitHub Actions Logs
-- View pipeline execution in GitHub Actions tab
-- Check individual job logs for debugging
-- Monitor deployment status and errors
-
-### Application Logs
-- SSH to bastion host to check application logs
-- Monitor database connections and errors
-- Check Java application output
-
-## Troubleshooting
-
-### Common Issues:
-
-**1. Test Failures**
-```bash
-# Run tests locally
-mvn clean test
-# Check test reports in target/surefire-reports/
-```
-
-**2. SSH Connection Issues**
-- Verify bastion host IP in secrets
-- Check SSH private key format
-- Ensure security groups allow SSH access
-
-**3. Database Connection Issues**
-- Verify RDS endpoints in secrets
-- Check security groups allow database access
-- Validate database credentials
-
-**4. Build Failures**
-```bash
-# Local build test
-mvn clean compile
-mvn clean package
-```
 
 ## Security Best Practices
 
@@ -183,16 +141,3 @@ mvn clean package
    - Different access credentials per environment
    - Isolated deployment targets
 
-## Maintenance
-
-### Regular Tasks:
-- Update dependencies in `pom.xml`
-- Rotate SSH keys and database passwords
-- Monitor pipeline performance
-- Review and update branch protection rules
-
-### Scaling Considerations:
-- Add more test environments as needed
-- Implement blue-green deployments
-- Add monitoring and alerting
-- Consider containerization with Docker

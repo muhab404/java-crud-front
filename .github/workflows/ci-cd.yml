@@ -1,8 +1,6 @@
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [ develop, master ]
   pull_request:
     branches: [ develop, master ]
 
@@ -36,56 +34,8 @@ jobs:
   deploy-dev:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
     environment: dev
-    steps:
-    - name: Deploy to Dev
-      run: |
-        echo "Deploying to DEV environment"
-        echo "DB_URL=jdbc:postgresql://${{ secrets.DEV_DB_HOST }}:5432/webapp"
-
-  deploy-test:
-    needs: deploy-dev
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    environment: test
-    steps:
-    - uses: actions/checkout@v3
-    - name: Download JAR artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: app-jar
-        path: target/
-    - name: Deploy and run on Test Host
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.BASTION_HOST }}
-        username: ec2-user
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          mkdir -p /home/ec2-user/app
-          echo "export SPRING_DATASOURCE_URL=jdbc:postgresql://${{ secrets.TEST_DB_HOST }}:5432/webapp" > /home/ec2-user/app/env.sh
-          echo "export SPRING_DATASOURCE_USERNAME=${{ secrets.DB_USERNAME }}" >> /home/ec2-user/app/env.sh
-          echo "export SPRING_DATASOURCE_PASSWORD=${{ secrets.DB_PASSWORD }}" >> /home/ec2-user/app/env.sh
-          echo "export SPRING_PROFILES_ACTIVE=test" >> /home/ec2-user/app/env.sh
-    - name: Upload and start app
-      uses: appleboy/scp-action@v0.1.4
-      with:
-        host: ${{ secrets.BASTION_HOST }}
-        username: ec2-user
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        source: "target/*.jar,run.sh"
-        target: "/home/ec2-user/app/"
-        post_script: |
-          chmod +x /home/ec2-user/app/run.sh
-          pkill -f java-crud-app || true
-          cd /home/ec2-user/app && source env.sh && nohup java -jar target/java-crud-app-1.0.0.jar > app.log 2>&1 &
-
-  deploy-staging:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
-    environment: staging
     steps:
     - uses: actions/checkout@v3
     - name: Download JAR artifact
@@ -101,10 +51,11 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           mkdir -p /home/ec2-user/app
-          echo "export SPRING_DATASOURCE_URL=jdbc:postgresql://${{ secrets.STG_DB_HOST }}:5432/webapp" > /home/ec2-user/app/env.sh
+          echo "export SPRING_DATASOURCE_URL=jdbc:postgresql://${{ secrets.DEV_DB_HOST }}:5432/webapp" > /home/ec2-user/app/env.sh
           echo "export SPRING_DATASOURCE_USERNAME=${{ secrets.DB_USERNAME }}" >> /home/ec2-user/app/env.sh
           echo "export SPRING_DATASOURCE_PASSWORD=${{ secrets.DB_PASSWORD }}" >> /home/ec2-user/app/env.sh
           echo "export SPRING_PROFILES_ACTIVE=staging" >> /home/ec2-user/app/env.sh
+
     - name: Upload and start app
       uses: appleboy/scp-action@v0.1.4
       with:
@@ -113,7 +64,106 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         source: "target/*.jar,run.sh"
         target: "/home/ec2-user/app/"
-        post_script: |
-          chmod +x /home/ec2-user/app/run.sh
-          pkill -f java-crud-app || true
-          cd /home/ec2-user/app && source env.sh && nohup java -jar target/java-crud-app-1.0.0.jar > app.log 2>&1 &
+
+    - name: Run commands on remote server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.BASTION_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /home/ec2-user/app/
+          chmod +x run.sh
+          ./run.sh > app.log 2>&1 &
+
+  deploy-test:
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    environment: test
+    steps:
+    - uses: actions/checkout@v3
+    - name: Download JAR artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: app-jar
+        path: target/
+
+    - name: Deploy and run on Test Host
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.BASTION_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          mkdir -p /home/ec2-user/app
+          echo "export SPRING_DATASOURCE_URL=jdbc:postgresql://${{ secrets.TEST_DB_HOST }}:5432/webapp" > /home/ec2-user/app/env.sh
+          echo "export SPRING_DATASOURCE_USERNAME=${{ secrets.DB_USERNAME }}" >> /home/ec2-user/app/env.sh
+          echo "export SPRING_DATASOURCE_PASSWORD=${{ secrets.DB_PASSWORD }}" >> /home/ec2-user/app/env.sh
+          echo "export SPRING_PROFILES_ACTIVE=test" >> /home/ec2-user/app/env.sh
+
+    - name: Upload and start app
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.BASTION_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        source: "target/*.jar,run.sh"
+        target: "/home/ec2-user/app/"
+
+    - name: Run commands on remote server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.BASTION_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /home/ec2-user/app/
+          chmod +x run.sh
+          ./run.sh > app.log 2>&1 &
+
+  deploy-staging:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'master'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v3
+    - name: Download JAR artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: app-jar
+        path: target/
+
+    - name: Deploy and run on Staging Host
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.BASTION_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          mkdir -p /home/ec2-user/app
+          echo "export SPRING_DATASOURCE_URL=jdbc:postgresql://${{ secrets.STG_DB_HOST }}:5432/webapp" > /home/ec2-user/app/env.sh
+          echo "export SPRING_DATASOURCE_USERNAME=${{ secrets.DB_USERNAME }}" >> /home/ec2-user/app/env.sh
+          echo "export SPRING_DATASOURCE_PASSWORD=${{ secrets.DB_PASSWORD }}" >> /home/ec2-user/app/env.sh
+          echo "export SPRING_PROFILES_ACTIVE=staging" >> /home/ec2-user/app/env.sh
+
+    - name: Upload and start app
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.BASTION_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        source: "target/*.jar,run.sh"
+        target: "/home/ec2-user/app/"
+
+    - name: Run commands on remote server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.BASTION_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /home/ec2-user/app/
+          chmod +x run.sh
+          ./run.sh > logapp.log 2>&1 &
