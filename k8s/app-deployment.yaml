@@ -15,12 +15,12 @@ spec:
     spec:
       containers:
       - name: java-crud-app
-        image: <ECR_REGISTRY>/java-crud-app:latest
+        image: public.ecr.aws/q4a0k8k4/java-crud-app:latest
         ports:
         - containerPort: 8080
         env:
         - name: DB_URL
-          value: "jdbc:postgresql://postgres-service:5432/webapp"
+          value: "jdbc:postgresql://postgres:5432/webapp"
         - name: DB_USERNAME
           valueFrom:
             secretKeyRef:
@@ -50,4 +50,4 @@ spec:
   ports:
   - port: 80
     targetPort: 8080
-  type: LoadBalancer
+  type: ClusterIP
