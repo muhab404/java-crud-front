@@ -1,115 +1,209 @@
 # Kubernetes Deployment Guide
 
-## Overview
-This guide explains how to deploy the Java CRUD application on a Kubernetes cluster.
+Complete Kubernetes deployment solution for Java CRUD Frontend Application with PostgreSQL database, including manifests, scaling, and production-ready configurations.
 
-## Prerequisites
-- Kubernetes cluster access
-- kubectl configured
-- ECR repository with application image
+## Kubernetes Components
 
-## Kubernetes Files
-- `k8s/namespace.yaml` - Application namespace
-- `k8s/postgres-secret.yaml` - Database credentials
-- `k8s/postgres-pvc.yaml` - Persistent storage for database
-- `k8s/postgres-deployment.yaml` - PostgreSQL deployment and service
-- `k8s/app-deployment.yaml` - Java application deployment and service
+### 1. Namespace
 
-## Deployment Steps
+### 2. Application Deployment
 
-### 1. Create Namespace
-```bash
-kubectl apply -f k8s/namespace.yaml
+### 3. Database StatefulSet
+
+### 4. Services
+
+### 5. Secrets Management
+
+## Manifest Files Overview
+
+```
+k8s/
+├── namespace.yaml              # Namespace definition
+├── postgres-secret.yaml        # Database credentials
+├── postgres-pv.yml            # Persistent Volume
+├── postgres-pvc.yaml          # Persistent Volume Claim
+├── postgres-deployment.yaml   # PostgreSQL StatefulSet
+└── app-deployment.yaml        # Application Deployment
 ```
 
-### 2. Create Secrets
-```bash
-kubectl apply -f k8s/postgres-secret.yaml
-```
+## Detailed Manifest Analysis
 
-### 3. Create Persistent Volume
-```bash
-kubectl apply -f k8s/postgres-pvc.yaml
-```
-
-### 4. Deploy PostgreSQL
-```bash
-kubectl apply -f k8s/postgres-deployment.yaml
-```
-
-### 5. Update Application Image
-Edit `k8s/app-deployment.yaml` and replace `<ECR_REGISTRY>` with your ECR registry URL:
+### 1. Namespace Configuration
 ```yaml
-image: your-account-id.dkr.ecr.region.amazonaws.com/java-crud-app:latest
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: java-crud-app
 ```
 
-### 6. Deploy Application
-```bash
-kubectl apply -f k8s/app-deployment.yaml
+**Purpose:**
+- Resource isolation
+- Security boundary
+- Resource quotas
+- Network policies
+
+### 2. Secret Management
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: java-crud-app
+type: Opaque
+data:
+  postgres-db: d2ViYXBw         
+  postgres-user: ZGJhZG1pbg==   
+  postgres-password: Q2hhbmdlTWUxMjMh
 ```
 
-## Verification
+**Security Features:**
+- Base64 encoding (not encryption)
+- Namespace-scoped access
+- Environment variable injection
+- Secret rotation support
 
-### Check Deployments
-```bash
-kubectl get deployments -n java-crud-app
-kubectl get pods -n java-crud-app
-kubectl get services -n java-crud-app
+### 3. Persistent Storage
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
 ```
 
-### Check Logs
-```bash
-kubectl logs -f deployment/java-crud-app-deployment -n java-crud-app
-kubectl logs -f deployment/postgres-deployment -n java-crud-app
+**Storage Features:**
+- 1GB capacity
+- ReadWriteOnce access mode
+- Retain reclaim policy
+- Manual storage class
+
+### 4. PostgreSQL StatefulSet
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: java-crud-app
+spec:
+  serviceName: "postgres"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-db
 ```
 
-### Access Application
-```bash
-# Get external IP (if LoadBalancer)
-kubectl get service java-crud-app-service -n java-crud-app
+**StatefulSet Benefits:**
+- Stable network identity
+- Ordered deployment/scaling
+- Persistent storage
+- Predictable pod names
 
-# Port forward for testing
-kubectl port-forward service/java-crud-app-service 8080:80 -n java-crud-app
+### 5. Application Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-crud-app-deployment
+  namespace: java-crud-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-crud-app
+  template:
+    spec:
+      containers:
+      - name: java-crud-app
+        image: public.ecr.aws/q4a0k8k4/java-crud-app:latest
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
 ```
 
-## Scaling
+**Deployment Features:**
+- 2 replicas for high availability
+- ECR image integration
+- Resource requests and limits
+- Rolling update strategy
 
-### Scale Application
+## Deployment Instructions
+
+### Prerequisites
+- **Kubernetes Cluster**: v1.20+ (EKS, GKE, AKS, or local)
+- **kubectl**: Configured with cluster access
+- **Docker Images**: Available in ECR registry
+- **Storage**: Persistent volume support
+
+### 1. Cluster Setup Verification
 ```bash
-kubectl scale deployment java-crud-app-deployment --replicas=3 -n java-crud-app
+# Verify cluster connection
+kubectl cluster-info
+
 ```
 
-## Configuration
-
-### Database Credentials
-Stored in `postgres-secret` (base64 encoded):
-- Database: webapp
-- Username: dbadmin
-- Password: ChangeMe123!
-
-### Resource Limits
-Application pods have:
-- Memory: 512Mi request, 1Gi limit
-- CPU: 250m request, 500m limit
-
-## Troubleshooting
-
-### Common Issues
-1. **Image Pull Errors**: Ensure ECR image URL is correct
-2. **Database Connection**: Check if PostgreSQL pod is running
-3. **Storage Issues**: Verify PVC is bound
-
-### Debug Commands
+### 2. Deploy Application Stack
 ```bash
-# Describe resources
-kubectl describe pod <pod-name> -n java-crud-app
-kubectl describe service <service-name> -n java-crud-app
+# Clone repository and switch to docker branch
+git clone <repository-url>
+cd java-crud-front
+git checkout docker
 
-# Check events
-kubectl get events -n java-crud-app --sort-by='.lastTimestamp'
+# Navigate to Kubernetes manifests
+cd k8s
+
+# Deploy in order (dependencies first)
+kubectl apply -f namespace.yaml
+kubectl apply -f postgres-secret.yaml
+kubectl apply -f postgres-pv.yml
+kubectl apply -f postgres-pvc.yaml
+kubectl apply -f postgres-deployment.yaml
+kubectl apply -f app-deployment.yaml
 ```
 
-## Cleanup
+### 3. Verify Deployment
 ```bash
-kubectl delete namespace java-crud-app
+# Check namespace resources
+kubectl get all -n java-crud-app
+
+# Verify pod status
+kubectl get pods -n java-crud-app -w
+
+# Check persistent volumes
+kubectl get pv,pvc -n java-crud-app
+
+# View service endpoints
+kubectl get svc -n java-crud-app
+```
+
+### 4. Access Application
+```bash
+# Port forward to access application
+kubectl port-forward -n java-crud-app svc/java-crud-app-service 8080:80
+
+# Test application
+curl http://localhost:8080/api/users
+
 ```
