@@ -3,7 +3,6 @@
 
 # Log files
 *.log
-readme
 # Maven
 target/
 pom.xml.tag
@@ -33,4 +32,3 @@ Thumbs.db
 # JAR files
 *.jar
 !maven-wrapper.jar
-
