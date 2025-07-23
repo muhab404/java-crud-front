@@ -15,6 +15,7 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 
+
 # IDE files
 .idea/
 *.iml
