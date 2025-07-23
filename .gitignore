@@ -33,3 +33,4 @@ Thumbs.db
 # JAR files
 *.jar
 !maven-wrapper.jar
+
