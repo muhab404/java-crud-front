@@ -6,39 +6,39 @@ on:
   pull_request:
     branches: [ docker ]
 
-
-
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: public.ecr.aws/q4a0k8k4
   ECR_REPOSITORY: java-crud-app
 
 jobs:
-
-
   filter-changes:
     runs-on: ubuntu-latest
     outputs:
-      docker-changed: ${{ steps.filter.outputs.docker }}
+      docker-changed: ${{ steps.filter.outputs.docker-changed }}
     steps:
-    - uses: actions/checkout@v3
-
-    - name: Filter for Docker-related changes
-      id: filter
-      uses: dorny/paths-filter@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
       with:
-        filters: |
-          docker:
-            - 'Dockerfile'
-            - 'docker-compose.prod.yml'
-            - 'src/**'
+        fetch-depth: 2  # Ensure we have the previous commit to diff against
+
+    - name: Detect changes in Docker-related files
+      id: filter
+      run: |
+        git diff --name-only HEAD^ HEAD > changed_files.txt
+        cat changed_files.txt
+
+        if grep -qE '(^Dockerfile|docker-compose.*\.yml|\.dockerignore|^src/)' changed_files.txt; then
+          echo "docker-changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "docker-changed=false" >> $GITHUB_OUTPUT
+        fi
 
   build-and-push:
     name: Build and Push to ECR
     needs: [filter-changes]
     runs-on: ubuntu-latest
-    outputs:
-      ecr-registry: ${{ steps.login-ecr-public.outputs.registry }}
+    if: always()
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -79,12 +79,7 @@ jobs:
   deploy:
     name: Deploy to EC2 with Docker Compose
     runs-on: ubuntu-latest
-    needs:
-      - filter-changes
-      - build-and-push
-    if: |
-      (needs.build-and-push.result == 'success' || needs.filter-changes.result == 'success')
-      
+    needs: [filter-changes, build-and-push]
     steps:
     - name: Deploy using SSH and Docker Compose
       uses: appleboy/ssh-action@v0.1.5
@@ -112,5 +107,3 @@ jobs:
           echo "Restarting application with Docker Compose..."
           docker-compose -f docker-compose.prod.yml down
           docker-compose -f docker-compose.prod.yml up -d --remove-orphans
-
-          
