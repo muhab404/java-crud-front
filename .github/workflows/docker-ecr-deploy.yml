@@ -112,3 +112,5 @@ jobs:
           echo "Restarting application with Docker Compose..."
           docker-compose -f docker-compose.prod.yml down
           docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+
+          
