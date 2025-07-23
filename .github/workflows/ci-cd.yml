@@ -2,6 +2,7 @@ name: CI/CD Pipeline
 
 on:
   pull_request:
+    types: [closed]
     branches: [ develop, master ]
 
 jobs:
@@ -34,7 +35,7 @@ jobs:
   deploy-dev:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    if: github.event.pull_request.merged == true && github.base_ref == 'develop'
     environment: dev
     steps:
     - uses: actions/checkout@v3
@@ -79,7 +80,7 @@ jobs:
   deploy-test:
     needs: deploy-dev
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    if: github.event.pull_request.merged == true && github.base_ref == 'develop'
     environment: test
     steps:
     - uses: actions/checkout@v3
@@ -125,7 +126,7 @@ jobs:
   deploy-staging:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref == 'master'
+    if: github.event.pull_request.merged == true && github.base_ref == 'master'
     environment: staging
     steps:
     - uses: actions/checkout@v3
